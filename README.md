@@ -5,3 +5,24 @@ Control your BLDC motor using Arduino Mega/ATmega2560.
 * Atmel Studio project for the BLDC open-loop controller.
 * A very clear Proteus model for verification of the controller and the power circuit using PROSPICE feature of proteus.
 * A code for hall sensors generation using Arduino UNO for hardware varification.
+
+# Gallery
+
+## phase U
+![PhaseU](Gallery/PhaseU.png)
+
+## phase V
+![PhaseV](Gallery/PhaseV.png)
+
+## phase W
+![PhaseW](Gallery/PhaseW.png)
+
+## phase UVW
+![PhaseW](Gallery/PhaseUVW.png)
+
+## control circuit
+![ControlCircuit](Gallery/ControlCircuit.png)
+
+## power circuit
+![PowerCircuit](Gallery/PowerCircuit.png)
+
