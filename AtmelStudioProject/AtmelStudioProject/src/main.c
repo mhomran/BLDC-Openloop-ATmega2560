@@ -17,28 +17,19 @@
 int 
 main(void)
 {
-  DDRB &= ~(1 << PINB5);          //A must for Arduino Nano
-
-  //Variable Initializations:
   PWM_Update_Counter = 0x0;
-      
-  //PWM HS> (pin 10 in ArduinoUNO) OCR1B PB2 
-  //PWM LS> (pin 9 in ArduinoUNO) OCR1A PB1
-  DDRB |= 1 << PINB1 | 1 << PINB2;
-  PORTB |= 1 << PINB1;
-  //HS en PD 3,5,7 | LS en PL 2,4,6 
-  DDRD = 0b11111100;
-
-  //PINB 5, 4, 3 are hall sensors
-    
-  //Peripherals initializations:
+	     
+  /* Peripherals initializations */
+	GpioInit();
   ADC_init();
   PCINT0_init();
-  Timer1_config();
+  Timer2_config();
   
-  //start the motor
+  /* start the motor */
   Start_Motor();
-  sei();	//enable global interrupts   
+	
+	/* enable global interrupts  */
+  sei();	
   
 	while (1)
 	{
@@ -56,36 +47,18 @@ Start_Motor(void)
 {
   Start_ADC_Conversation(); 
   
-  Hall_IN = ((PINB & 0b00111000) >> 3);  
+  Hall_IN = HALL_SENSORS_IDR & 0x07;  
   PreDriver_Sequence = Hall_DIR_sequence[Hall_IN];
   PWM_update(PreDriver_Sequence); 
-  //start the timer
-
-  //determine bucket step
-  if(Current_PWM_DutyCycle < Desired_PWM_DutyCycle)   
-		{
-			// Initially PWM dutycycle set to min dutycycle. If desired dutycycle < min dutycycle, latch
-			// at min dutycycle, else compute #steps required to reach input speed value in ~100ms
-			PWM_BucketStep = (Desired_PWM_DutyCycle-Current_PWM_DutyCycle)/(STARTUP_STEPS);  
-			if(PWM_BucketStep <= 0)
-				{
-					PWM_BucketStep = 1;
-				}
-			Motor_Status = StartUp;
-		}
-  else
-		{
-			Motor_Status = Running;
-		}
   
-  TCCR1B |= 1 << CS10; //N =1 enable timer
+  TCCR2B |= 1 << CS20 | 1 << CS21; //enable the timer with Prescaler = 32 
 }
 
 void 
 Stop_Motor(void)
 {
   cli(); //disable global interrupt
-  TCCR1B &= ~(1 << CS10);
+  TCCR2B &= ~(1 << CS20 | 1 << CS21);
   Motor_Status = Stopped;
 }
 
@@ -94,28 +67,40 @@ PWM_update (unsigned char Next_Hall_Sequence)
 {
   switch(Next_Hall_Sequence)
 		{
-			case HS_W|LS_V:            // Hall_IN DIR1_001 DIR0_110
-				PORTD = 0b10010000;
+			case HS_W|LS_V:
+				GpioClear();            
+				WH_ODR |= WH_PIN;
+				VL_ODR |= VL_PIN;
 			break;
     
-			case HS_V|LS_U:           // Hall_IN DIR1_010 DIR0_101
-				PORTD = 0b00100100;
+			case HS_V|LS_U: 
+				GpioClear();
+				VH_ODR |= VH_PIN;
+				UL_ODR |= UL_PIN;
 			break;
     
-			case HS_W|LS_U:            // Hall_IN DIR1_011 DIR0_100
-				PORTD = 0b10000100;
+			case HS_W|LS_U:
+				GpioClear();            
+				WH_ODR |= WH_PIN;
+				UL_ODR |= UL_PIN;
 			break;
     
-			case HS_U|LS_W:            // Hall_IN CCW_100 CW_011
-				PORTD=  0b01001000;
+			case HS_U|LS_W:    
+				GpioClear();    
+				UH_ODR |= UH_PIN;
+				WL_ODR |= WL_PIN;
 			break;
     
-			case HS_U|LS_V:            // Hall_IN CCW_101 CW_010
-				PORTD = 0b00011000;
+			case HS_U|LS_V:   
+				GpioClear();         
+				UH_ODR |= UH_PIN;
+				VL_ODR |= VL_PIN;
 			break;
     
-			case HS_V|LS_W:            // Hall_IN CCW_110 CW_001
-				PORTD = 0b01100000;
+			case HS_V|LS_W:            
+				GpioClear();
+				VH_ODR |= VH_PIN;
+				WL_ODR |= WL_PIN;
 			break;
     
 			default:
@@ -124,93 +109,101 @@ PWM_update (unsigned char Next_Hall_Sequence)
 }
 
 void 
+GpioInit(void)
+{
+	/* hall sensors input mode */
+	HALL_SENSORS_MODER &= ~(HALL_U_PIN | HALL_V_PIN | HALL_W_PIN);
+	
+	/* gates signals output mode */
+	UL_MODER |= UL_PIN;
+	UH_MODER |= UH_PIN;
+	VL_MODER |= VL_PIN;
+	VH_MODER |= VH_PIN;
+	WL_MODER |= WL_PIN;
+	WH_MODER |= WH_PIN;
+	
+	/* PWM IOs */
+	HS_PWM_MODER |= HS_PWM_PIN;
+	
+	LS_PWM_MODER |= LS_PWM_PIN;
+	LS_PWM_ODR |= LS_PWM_PIN;
+}
+
+/************************************************************************/
+/* clear the gate signals for the new commutation                       */
+/************************************************************************/
+void
+GpioClear()
+{
+	UL_ODR &= ~UL_PIN;
+	UH_ODR &= ~UH_PIN;
+	VL_ODR &= ~VL_PIN;
+	VH_ODR &= ~VH_PIN;
+	WL_ODR &= ~WL_PIN;
+	WH_ODR &= ~WH_PIN;
+}
+
+void 
 PCINT0_init(void)
 {
   PCICR |= 1 << PCIE0;
-  PCMSK0 |= (1 << PCINT3) | (1 << PCINT4) | (1 << PCINT5);	// 11 > yellow || 12 > green || 13 > blue
+  PCMSK0 |= 1 << PCINT0 | 1 << PCINT1 | 1 << PCINT2;	
 }
 
 void 
 ADC_init(void)
 {
-  ADMUX |= 1 << REFS0 | (1 << MUX0) | (1 << MUX1); //AVCC with external capacitor at AREF pin, MUX = 0011, ArduinoUno "A3"
+  ADMUX = 1 << REFS0; //AVCC with external capacitor at AREF pin
+										   // MUX5:0 = 100000, ArduinoUno "A8"
+	ADCSRB |= 1 << MUX5;
   ADCSRA |= 1 << ADEN | 1 << ADPS2;  //ADC sampling rate = 16MHz/16 = 1 MHz
 }
 
 void 
-Timer1_config(void)
+Timer2_config(void)
 {
-  TCCR1A |= 1 << WGM11;
-  TCCR1B |= 1 << WGM12 | 1 << WGM13; //fast mode ICR1 = PWM period
-  ICR1 = TIMER_PWM_PERIOD;
-
+  TCCR2A |= 1 << WGM20 | 1 << WGM21;
+  TCCR2B |= 1 << WGM22; //fast mode OCRA = PWM period
+  OCR2A = TIMER_PWM_PERIOD;
   Current_PWM_DutyCycle = MIN_PWM_DUTYCYCLE; // Initial Duty cycle
-  OCR1B = Current_PWM_DutyCycle;
-  TCCR1A |= 1 << COM1B1;  // clear at compare 
-  TIMSK1 |= 1 << TOIE1; // Timer1 overflow interrupt enabled
+  OCR2B = Current_PWM_DutyCycle;
+  TCCR2A |= 1 << COM2B1;  // clear at compare 
+  TIMSK2 |= 1 << TOIE2; // Timer2 overflow interrupt enabled
 }
 
 ISR
 (PCINT0_vect)
 {
-  Hall_IN = ((PINB & 0b00111000) >> 3);  
+  Hall_IN = HALL_SENSORS_IDR & 0x07;  
   PreDriver_Sequence = Hall_DIR_sequence[Hall_IN];
   PWM_update(PreDriver_Sequence); 
 }
 
 ISR
-(TIMER1_OVF_vect)
+(TIMER2_OVF_vect)
 {
-  //heart beat signal = PWM period
-  //In computer science, a heartbeat is a periodic signal generated by hardware or software to indicate normal operation or to synchronize other parts of a computer system.[1] #wiki pedia
   ADC_Sample_Counter++; 
   PWM_Update_Counter++;
-  if (Motor_Status == StartUp)
+  
+  if(ADC_Sample_Counter > ADC_SAMPLING_PWM_PERIODS)
 		{
-			if((PWM_Update_Counter > DUTYCYCLE_CHANGE_PERIODS)&&(Current_PWM_DutyCycle < Desired_PWM_DutyCycle))  // 1023
-				{
-					Current_PWM_DutyCycle = Current_PWM_DutyCycle + PWM_BucketStep;
-      
-					//to prevent overflow
-					if (Current_PWM_DutyCycle > (TIMER_PWM_PERIOD -1)) 
-						{
-							OCR1B = (TIMER_PWM_PERIOD -1);
-						}
-					else 
-						{
-							OCR1B = Current_PWM_DutyCycle;
-						}
-      
-					PWM_Update_Counter = 0x0;
-				}
-    
-			else if(Current_PWM_DutyCycle >= Desired_PWM_DutyCycle)
-			{
-				Motor_Status = Running;
-			}
+			ADC_Sample_Counter = 0x0;
+			SampleADC = true;
 		}
-  else if (Motor_Status == Running)
-		{
-			if(ADC_Sample_Counter > ADC_SAMPLING_PWM_PERIODS)
-				{
-					ADC_Sample_Counter = 0x0;
-					SampleADC = true;
-				}
 			
-			if (Desired_PWM_DutyCycle > Current_PWM_DutyCycle)
-				{
-					// Increment duty cycle or change duty cycle in +VE direction
-					Current_PWM_DutyCycle = Current_PWM_DutyCycle + MAIN_PWM_BUCKET_DC;
-				}
-			else if (Desired_PWM_DutyCycle < Current_PWM_DutyCycle)
-				{
-					// Decrement duty cycle or change duty cycle in -VE direction
-					Current_PWM_DutyCycle = Current_PWM_DutyCycle - MAIN_PWM_BUCKET_DC;
-				}
-    
-			// Update PWM duty cycle values
-			OCR1B = Current_PWM_DutyCycle;
+	if (Desired_PWM_DutyCycle > Current_PWM_DutyCycle)
+		{
+			// Increment duty cycle or change duty cycle in +VE direction
+			Current_PWM_DutyCycle = Current_PWM_DutyCycle + MAIN_PWM_BUCKET_DC;
 		}
+	else if (Desired_PWM_DutyCycle < Current_PWM_DutyCycle)
+		{
+			// Decrement duty cycle or change duty cycle in -VE direction
+			Current_PWM_DutyCycle = Current_PWM_DutyCycle - MAIN_PWM_BUCKET_DC;
+		}
+    
+	// Update PWM duty cycle values
+	OCR2B = Current_PWM_DutyCycle;
 }
 
 void 
@@ -224,22 +217,6 @@ Start_ADC_Conversation(void)
 			prevADC = curADC;
 			Temp_DutyCycle = ((prevADC-200)/655.0) * TIMER_PWM_PERIOD; //to not get to the top value
 
-			TCCR1A |= 1 << COM1B1;
-    
-			if (prevADC < 200)
-				{
-					TCCR1A &= ~(1 << COM1B1);
-					PORTB &= ~(1 << PINB2);
-					Desired_PWM_DutyCycle = MIN_PWM_DUTYCYCLE;
-				}
-			else if (prevADC >= 855)
-				{  
-					TCCR1A &= ~(1 << COM1B1);	//to prevent closing the switches fast
-					PORTB |= 1 << PINB2;
-				}
-			else
-				{
-					Desired_PWM_DutyCycle = Temp_DutyCycle;
-				}
+			Desired_PWM_DutyCycle = Temp_DutyCycle;
 		}
 }
