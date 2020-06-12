@@ -26,11 +26,9 @@
                                         // then #steps for ramping = (15*100)/10 = 150 steps
 
 #define ADC_SAMPLING_PWM_PERIODS 10   // Every #PWM periods when ADC is sampled
-#define MAIN_PWM_BUCKET_PERCENT 2/10    // (in %age) Resolution by which the PWM dutycycle is 
-                                        // incremented/decremented after motor start-up
-#define MAIN_PWM_BUCKET_DC  (TIMER_PWM_PERIOD*MAIN_PWM_BUCKET_PERCENT)/100
-                                        // PWM dutycycle change resolution in timer counts
 
+#define MAIN_PWM_BUCKET_DC 1 // PWM dutycycle change resolution in timer counts
+                                        
 //****************************************************************************//
 // Motor Status Definitions
 //****************************************************************************//

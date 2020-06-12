@@ -21,7 +21,7 @@
 /* gates signals */
 #define UL_MODER DDRB
 #define UL_ODR PORTB
-#define UL_PIN 0x01
+#define UL_PIN 0x40
 
 #define UH_MODER DDRB
 #define UH_ODR PORTB
@@ -92,7 +92,6 @@ void Start_ADC_Conversation(void);
 
 //peripherals
 static void GpioInit(void);
-static void GpioClear(void);
 static void PCINT0_init(void);
 static void ADC_init(void);
 static void Timer2_config(void);

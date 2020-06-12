@@ -16,9 +16,7 @@
 
 int 
 main(void)
-{
-  PWM_Update_Counter = 0x0;
-	     
+{	     
   /* Peripherals initializations */
 	GpioInit();
   ADC_init();
@@ -68,37 +66,61 @@ PWM_update (unsigned char Next_Hall_Sequence)
   switch(Next_Hall_Sequence)
 		{
 			case HS_W|LS_V:
-				GpioClear();            
+				UL_ODR &= ~UL_PIN;
+				UH_ODR &= ~UH_PIN;
+				VH_ODR &= ~VH_PIN;
+				WL_ODR &= ~WL_PIN;
+				
 				WH_ODR |= WH_PIN;
 				VL_ODR |= VL_PIN;
 			break;
     
 			case HS_V|LS_U: 
-				GpioClear();
+				UH_ODR &= ~UH_PIN;
+				VL_ODR &= ~VL_PIN;
+				WH_ODR &= ~WH_PIN;
+				WL_ODR &= ~WL_PIN;
+				
 				VH_ODR |= VH_PIN;
 				UL_ODR |= UL_PIN;
 			break;
     
 			case HS_W|LS_U:
-				GpioClear();            
+				UH_ODR &= ~UH_PIN;
+				VL_ODR &= ~VL_PIN;
+				VH_ODR &= ~VH_PIN;
+				WL_ODR &= ~WL_PIN;
+			
 				WH_ODR |= WH_PIN;
 				UL_ODR |= UL_PIN;
 			break;
     
 			case HS_U|LS_W:    
-				GpioClear();    
+				UL_ODR &= ~UL_PIN;
+				VL_ODR &= ~VL_PIN;
+				VH_ODR &= ~VH_PIN;
+				WH_ODR &= ~WH_PIN;
+				
 				UH_ODR |= UH_PIN;
 				WL_ODR |= WL_PIN;
 			break;
     
-			case HS_U|LS_V:   
-				GpioClear();         
+			case HS_U|LS_V:
+				UL_ODR &= ~UL_PIN;
+				VH_ODR &= ~VH_PIN;
+				WL_ODR &= ~WL_PIN;
+				WH_ODR &= ~WH_PIN;
+				 
 				UH_ODR |= UH_PIN;
 				VL_ODR |= VL_PIN;
 			break;
     
 			case HS_V|LS_W:            
-				GpioClear();
+				UL_ODR &= ~UL_PIN;
+				UH_ODR &= ~UH_PIN;
+				VL_ODR &= ~VL_PIN;
+				WH_ODR &= ~WH_PIN;
+				
 				VH_ODR |= VH_PIN;
 				WL_ODR |= WL_PIN;
 			break;
@@ -127,20 +149,6 @@ GpioInit(void)
 	
 	LS_PWM_MODER |= LS_PWM_PIN;
 	LS_PWM_ODR |= LS_PWM_PIN;
-}
-
-/************************************************************************/
-/* clear the gate signals for the new commutation                       */
-/************************************************************************/
-void
-GpioClear()
-{
-	UL_ODR &= ~UL_PIN;
-	UH_ODR &= ~UH_PIN;
-	VL_ODR &= ~VL_PIN;
-	VH_ODR &= ~VH_PIN;
-	WL_ODR &= ~WL_PIN;
-	WH_ODR &= ~WH_PIN;
 }
 
 void 
@@ -183,7 +191,6 @@ ISR
 (TIMER2_OVF_vect)
 {
   ADC_Sample_Counter++; 
-  PWM_Update_Counter++;
   
   if(ADC_Sample_Counter > ADC_SAMPLING_PWM_PERIODS)
 		{
